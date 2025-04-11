@@ -86,5 +86,8 @@ def edit_from_calendar(id):
     db.session.commit()
     return redirect(url_for('full_calendar'))
 
+import os
+
 if __name__ == '__main__':
-    app.run(debug=True)
+    port = int(os.environ.get('PORT', 10000))
+    app.run(host='0.0.0.0', port=port)
