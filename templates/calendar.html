@@ -37,7 +37,8 @@
         <div>
     <strong>
         <a href="#" data-bs-toggle="modal" data-bs-target="#editModal{{ entry.id }}">
-            {{ entry.note }}
+            {{ entry.note|safe }}
+
         </a>
     </strong>
     {% if entry.details %}
@@ -52,7 +53,7 @@
                 <form method="POST" action="/edit/{{ entry.id }}">
                     <div class="modal-content">
                         <div class="modal-header">
-                            <h5 class="modal-title" id="modalLabel{{ entry.id }}">Edit Details for: {{ entry.note }}</h5>
+                            <h5 class="modal-title" id="modalLabel{{ entry.id }}">Edit Details for: {{ entry.note|safe }}</h5>
                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                         </div>
                        <div class="mb-3">
