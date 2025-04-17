@@ -13,10 +13,38 @@ body {
     border: 1px solid #ccc;
     padding: 10px;
     width: 200px;
-    background-color: #f9f9f9;
+    background-color: #cfedeb; /* only used in custom layout, safe to keep */
+}
+
+.card-body > div {
+    padding: 4px 0;
+    word-break: break-word;
 }
 
 .text-muted {
     color: #6c757d;
     font-size: 0.875em;
+}
+
+.text-blue {
+    color: #0000FF !important;
+}
+
+.text-red {
+    color: #FF0000 !important;
+}
+
+.text-green {
+    color: #008000 !important;
+}
+
+/* ✅ Only target the calendar header row: Mon, Tue, etc. */
+.fc .fc-col-header-cell {
+    background-color: #cfedeb !important;
+}
+
+/* Optional font tweak */
+.fc .fc-col-header-cell-cushion {
+    font-weight: bold;
+    text-align: center;
 }

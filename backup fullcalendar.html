@@ -21,7 +21,6 @@
             min-height: 100px;
         }
     </style>
-    <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
 </head>
 <body class="p-4">
 <h1><img src="{{ url_for('static', filename='anzlogo.png') }}" alt="Logo" style="height: 60px; vertical-align: middle; margin-right: 20px;">
@@ -29,10 +28,6 @@
 <div class="mb-2 d-flex justify-content-end align-items-center">
     <input type="text" id="calendarSearchInput" class="form-control form-control-sm me-2" placeholder="Search events..." style="width: 200px;">
     <button id="manualSearchBtn" class="btn btn-dark btn-sm">Search</button>
-
-    <!-- ✅ Export Date Picker -->
-    <input type="date" id="exportDate" class="form-control form-control-sm me-2" style="width: 180px;">
-    <button class="btn btn-outline-success btn-sm" onclick="exportToExcel()">Export</button>
 </div>
 <div id='calendar'></div>
 
@@ -306,16 +301,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 });
 </script>
-<script>
-function exportToExcel() {
-    const selectedDate = document.getElementById('exportDate').value;
-    if (!selectedDate) {
-        alert("Please select a date to export.");
-        return;
-    }
-    window.location.href = `/export_excel/${selectedDate}`;
-}
-</script>
+
 
 </body>
 </html>
