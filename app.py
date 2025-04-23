@@ -125,6 +125,18 @@ def edit_from_calendar(id):
         db.session.commit()
         return '', 204  # No Content
 
+    # Handle POST edit
+    entry.date = request.form.get('date')
+    entry.note = request.form.get('note')
+    entry.details = request.form.get('details')
+    entry.text_color = request.form.get('text_color', '#000000')
+    entry.is_closed = 'is_closed' in request.form
+    entry.expected_date = request.form.get('expected_date')
+    db.session.commit()
+
+    return redirect(url_for('full_calendar'))  # ✅ This was missing!
+
+
     # Existing POST edit logic remains unchanged...
 
 
