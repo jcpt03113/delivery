@@ -10,7 +10,8 @@ import os
 app = Flask(__name__)
 app.secret_key = 'supersecretkey'  # Change this in production
 
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///calendar.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://anzhome:HKBKcJVneu9uwVkDJ6QB2IBMBGj40eVz@dpg-d081a7ngi27c738206vg-a/anzdelivery'
+
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
