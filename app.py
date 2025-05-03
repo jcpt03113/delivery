@@ -7,13 +7,19 @@ from io import BytesIO
 import pandas as pd
 import os
 
+from dotenv import load_dotenv
+load_dotenv()
+print("DB URL:", os.getenv("DATABASE_URL"))
+
+
 app = Flask(__name__)
 app.secret_key = 'supersecretkey'  # Change this in production
 
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://anzhome:HKBKcJVneu9uwVkDJ6QB2IBMGBj4OeVz@dpg-d081a7ngi27c738206vg-a/anzdelivery'
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
+print("Connected to:", app.config['SQLALCHEMY_DATABASE_URI'])
 
 from datetime import timedelta
 
