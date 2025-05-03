@@ -2,17 +2,15 @@ name: Daily Dropbox Backup
 
 on:
   schedule:
-    - cron: '0 23 * * *'  # Every day at 11 PM UTC (7 AM Malaysia)
-  workflow_dispatch:      # Allows manual trigger
+    - cron: '0 22 * * *'  # runs daily at 6AM MYT
+  workflow_dispatch:      # allow manual run
 
 jobs:
   backup:
     runs-on: ubuntu-latest
-
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       DROPBOX_ACCESS_TOKEN: ${{ secrets.DROPBOX_ACCESS_TOKEN }}
-
     steps:
       - uses: actions/checkout@v3
 
