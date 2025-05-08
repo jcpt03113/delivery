@@ -46,19 +46,22 @@ class CalendarEntry(db.Model):
 with app.app_context():
     db.create_all()
 
-# Login system for 1 hardcoded admin user
+# Login system with multiple hardcoded users
 class User(UserMixin):
-    def __init__(self, id):
+    def __init__(self, id, password):
         self.id = id
-        self.name = "admin"
-        self.password = "anzhome1388"
+        self.name = id
+        self.password = password
 
-users = {'admin': User(id="admin")}
+# Define users here
+users = {
+    'admin': User(id='admin', password='anzhome1388'),
+    'showroom': User(id='showroom', password='anzdelivery')
+}
 
 @login_manager.user_loader
 def load_user(user_id):
     return users.get(user_id)
-
 # ====== ROUTES ======
 
 @app.route('/')
@@ -72,14 +75,16 @@ def login():
         username = request.form.get('username')
         password = request.form.get('password')
 
-        if username == "admin" and password == "anzhome1388":
-            login_user(users['admin'])
+        user = users.get(username)
+        if user and password == user.password:
+            login_user(user)
             return redirect(url_for('full_calendar'))
         else:
             flash("Invalid username or password.")
             return redirect(url_for('login'))
 
     return render_template('login.html')
+
 
 @app.route('/logout')
 @login_required
