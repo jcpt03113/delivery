@@ -110,7 +110,7 @@ def events():
         events.append({
             'id': entry.id,
             'title': title,
-            'start': datetime.strptime(entry.expected_date if entry.expected_date else entry.date, "%Y-%m-%d").strftime("%d-%m-%Y"),
+            'start': entry.expected_date if entry.expected_date else entry.date,
             'textColor': entry.text_color,
             'extendedProps': {
                 'details': entry.details,
