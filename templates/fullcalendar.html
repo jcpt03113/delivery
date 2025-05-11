@@ -222,6 +222,26 @@ document.addEventListener('DOMContentLoaded', function () {
         height: 'auto',
         events: '/events',
         editable: true,
+        eventDrop: function(info) {
+            const newDate = info.event.startStr;
+            fetch(`/edit_from_calendar/${info.event.id}`, {
+                method: 'POST',
+                body: new URLSearchParams({
+                    expected_date: newDate,
+                    date: newDate,
+                    note: info.event.title,
+                    text_color: info.event.textColor,
+                    is_closed: info.event.extendedProps.is_closed ? 'on' : '',
+                    details: info.event.extendedProps.details || ''
+                })
+            }).then(response => {
+                if (!response.ok) {
+                    alert('Failed to update event date.');
+                    info.revert();  // revert drag if failed
+                }
+            });
+        },
+
         eventContent: function(arg) {
             const container = document.createElement('div');
             const noteText = document.createElement('div');
