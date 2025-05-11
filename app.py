@@ -11,15 +11,24 @@ from dotenv import load_dotenv
 load_dotenv()
 print("DB URL:", os.getenv("DATABASE_URL"))
 
-
 app = Flask(__name__)
 app.secret_key = 'supersecretkey'  # Change this in production
 
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
+# Enforce ?sslmode=require and engine SSL options
+raw_db_url = os.getenv("DATABASE_URL", "")
+if raw_db_url and 'sslmode=' not in raw_db_url:
+    raw_db_url += '?sslmode=require'
 
+app.config['SQLALCHEMY_DATABASE_URI'] = raw_db_url
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    "connect_args": {"sslmode": "require"}
+}
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
 db = SQLAlchemy(app)
+
 print("Connected to:", app.config['SQLALCHEMY_DATABASE_URI'])
+
 
 from datetime import timedelta
 
