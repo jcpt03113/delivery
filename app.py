@@ -185,7 +185,7 @@ def search_events():
                 'id': entry.id,
                 'title': entry.note,
                 'details': entry.details,
-                'start': entry.date,
+                'start': entry.expected_date if entry.expected_date else entry.date,
                 'textColor': entry.text_color
             })
     return jsonify(matches)
