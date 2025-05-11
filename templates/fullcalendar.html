@@ -320,7 +320,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         card.className = 'mb-2 p-2 border rounded bg-light search-result';
                         card.innerHTML = `
                             <strong>${event.title}</strong><br>
-                            <small>${event.start}</small><br>
+                            <small><strong>Delivery:</strong> ${event.start}</small><br>
                             <div>${event.details || ''}</div>
                         `;
                         card.addEventListener('click', function () {
