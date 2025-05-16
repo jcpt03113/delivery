@@ -101,6 +101,24 @@ def logout():
     logout_user()
     return redirect(url_for('login'))
 
+@app.route('/add_from_calendar', methods=['POST'])
+def add_from_calendar():
+    date_input = request.form.get('date')
+    expected_input = request.form.get('expected_date') or date_input
+
+    new_entry = CalendarEntry(
+        date=date_input,
+        expected_date=expected_input,
+        note=request.form.get('note'),
+        details=request.form.get('details'),
+        text_color=request.form.get('text_color', '#000000'),
+        is_closed=('is_closed' in request.form)
+    )
+    db.session.add(new_entry)
+    db.session.commit()
+    return redirect(url_for('full_calendar'))
+
+
 @app.route('/events')
 def events():
     entries = CalendarEntry.query.all()
