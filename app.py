@@ -121,22 +121,6 @@ def events():
         })
     return jsonify(events)
 
-@app.route('/add_from_calendar', methods=['POST'])
-def add_from_calendar():
-    new_entry = CalendarEntry(
-        date=request.form.get('date'),
-        note=request.form.get('note'),
-        details=request.form.get('details'),
-        text_color=request.form.get('text_color', '#000000'),
-        is_closed=('is_closed' in request.form),
-        expected_date=request.form.get('expected_date')
-    )
-    db.session.add(new_entry)
-    db.session.commit()
-    return redirect(url_for('full_calendar'))
-
-
-
 @app.route('/edit_from_calendar/<int:id>', methods=['POST', 'DELETE'])
 def edit_from_calendar(id):
     entry = CalendarEntry.query.get_or_404(id)
@@ -144,18 +128,24 @@ def edit_from_calendar(id):
     if request.method == 'DELETE':
         db.session.delete(entry)
         db.session.commit()
-        return '', 204  # No Content
+        return '', 204
 
-    # Handle POST edit
-    entry.date = request.form.get('date')
+    updated_date = request.form.get('expected_date')  # always use expected_date as new source of truth
+
+    entry.expected_date = updated_date
+    entry.date = updated_date  # sync the date
     entry.note = request.form.get('note')
     entry.details = request.form.get('details')
     entry.text_color = request.form.get('text_color', '#000000')
     entry.is_closed = 'is_closed' in request.form
-    entry.expected_date = request.form.get('expected_date')
-    db.session.commit()
 
-    return redirect(url_for('full_calendar'))  # ✅ This was missing!
+    db.session.commit()
+    return redirect(url_for('full_calendar'))
+
+
+
+
+
 
 
 
@@ -248,6 +238,19 @@ def export_all():
 def test_export():
     return "Test Export OK"
 
+@app.route('/fix_expected_date_once')
+def fix_expected_date_once():
+    entries = CalendarEntry.query.filter(
+        (CalendarEntry.expected_date == None) | (CalendarEntry.expected_date == '')
+    ).all()
+
+    count = 0
+    for entry in entries:
+        entry.expected_date = entry.date
+        count += 1
+
+    db.session.commit()
+    return f"✅ Fixed {count} entries where expected_date was blank."
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5050)
