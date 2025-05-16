@@ -180,23 +180,49 @@ def delete_from_calendar(id):
 @app.route("/search_events")
 def search_events():
     keyword = request.args.get("q", "").lower().strip()
-    if not keyword:
-        return jsonify([])
+    start_date = request.args.get("start")
+    end_date = request.args.get("end")
 
-    matches = []
+    results = []
+
+    # Convert strings to actual date objects
+    try:
+        start_date_obj = datetime.strptime(start_date, "%Y-%m-%d").date() if start_date else None
+        end_date_obj = datetime.strptime(end_date, "%Y-%m-%d").date() if end_date else None
+    except ValueError:
+        start_date_obj = end_date_obj = None  # fail-safe
+
     entries = CalendarEntry.query.all()
+
     for entry in entries:
         note = (entry.note or "").lower()
         details = (entry.details or "").lower()
-        if keyword in note or keyword in details:
-            matches.append({
-                'id': entry.id,
-                'title': entry.note,
-                'details': entry.details,
-                'start': entry.expected_date if entry.expected_date else entry.date,
-                'textColor': entry.text_color
-            })
-    return jsonify(matches)
+        if keyword not in note and keyword not in details:
+            continue
+
+        # pick the date to compare
+        date_str = entry.expected_date or entry.date
+        try:
+            entry_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+        except:
+            continue  # skip bad date formats
+
+        # Check date filters
+        if start_date_obj and entry_date < start_date_obj:
+            continue
+        if end_date_obj and entry_date > end_date_obj:
+            continue
+
+        # Passed all filters
+        results.append({
+            'id': entry.id,
+            'title': entry.note,
+            'details': entry.details,
+            'start': date_str,
+            'textColor': entry.text_color
+        })
+
+    return jsonify(results)
 
 @app.route('/export_excel/<date_str>')
 def export_excel(date_str):
