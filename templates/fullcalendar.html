@@ -47,13 +47,23 @@
 <h1><img src="{{ url_for('static', filename='anzlogo.png') }}" alt="Logo" style="height: 65px; vertical-align: middle; margin-right: 20px;">
   Delivery Calendar (Monthly View)</h1>
 <div class="mb-2 d-flex justify-content-end align-items-center">
+    <!-- 🔍 Keyword search -->
     <input type="text" id="calendarSearchInput" class="form-control form-control-sm me-2" placeholder="Search events..." style="width: 200px;">
-    <button id="manualSearchBtn" class="btn btn-dark btn-sm">Search</button>
 
-    <!-- ✅ Export Date Picker -->
+    <!-- 📅 Date range filter -->
+    <label class="form-label me-1 mb-0">From:</label>
+    <input type="date" id="searchStartDate" class="form-control form-control-sm me-2" style="width: 160px;">
+    <label class="form-label me-1 mb-0">To:</label>
+    <input type="date" id="searchEndDate" class="form-control form-control-sm me-2" style="width: 160px;">
+
+    <!-- 🔘 Search button -->
+    <button id="manualSearchBtn" class="btn btn-dark btn-sm me-3">Search</button>
+
+    <!-- ✅ Export -->
     <input type="date" id="exportDate" class="form-control form-control-sm me-2" style="width: 180px;">
     <button class="btn btn-outline-success btn-sm" onclick="exportToExcel()">Export</button>
 </div>
+
 <div id='calendar'></div>
 
 <!-- Add Entry Modal -->
@@ -326,10 +336,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
     document.getElementById('manualSearchBtn').addEventListener('click', function () {
         const keyword = document.getElementById('calendarSearchInput').value.toLowerCase();
+        const startDate = document.getElementById('searchStartDate').value;
+        const endDate = document.getElementById('searchEndDate').value;
         const resultsContainer = document.getElementById('searchResultsBody');
         resultsContainer.innerHTML = '';
 
-        fetch(`/search_events?q=${encodeURIComponent(keyword)}`)
+        fetch(`/search_events?q=${encodeURIComponent(keyword)}&start=${startDate}&end=${endDate}`)
             .then(res => res.json())
             .then(events => {
                 if (events.length === 0) {
@@ -359,6 +371,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 new bootstrap.Modal(document.getElementById('searchResultsModal')).show();
             });
     });
+
 });
 </script>
 <script>
