@@ -26,7 +26,7 @@ class CalendarEntry(db.Model):
     expected_date = db.Column(db.String(20))
 
 # === Bulk Import Logic ===
-FILE_PATH = "import_calendar_data.csv"
+FILE_PATH = "calendar_entry_template.csv"
 
 with app.app_context():
     df = pd.read_csv(FILE_PATH).fillna("")
