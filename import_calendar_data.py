@@ -54,7 +54,7 @@ with app.app_context():
 
         if note_key in existing_notes:
             # Update existing entry
-            existing_entry = CalendarEntry.query.get(existing_notes[note_key])
+            existing_entry = db.session.get(CalendarEntry, existing_notes[note_key])
             existing_entry.date = date_val
             existing_entry.expected_date = expected_val
             existing_entry.details = details
