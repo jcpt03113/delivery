@@ -25,7 +25,7 @@ class CalendarEntry(db.Model):
     expected_date = db.Column(db.String(20))  # ISO format (yyyy-mm-dd)
 
 # CSV file location
-FILE_PATH = 'import_calendar_data.csv'
+FILE_PATH = 'calendar_entry_template.csv'
 
 with app.app_context():
     print("DB URL:", app.config['SQLALCHEMY_DATABASE_URI'])
