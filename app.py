@@ -141,20 +141,31 @@ def events():
 
 @app.route('/delete_last_import')
 def delete_last_import():
-    # Find the latest timestamp used
-    latest_timestamp = db.session.query(CalendarEntry.timestamp).order_by(CalendarEntry.timestamp.desc()).first()
+    # Step 1: Get the most recent timestamp used in the latest batch import
+    latest_timestamp = db.session.query(CalendarEntry.timestamp)\
+        .order_by(CalendarEntry.timestamp.desc())\
+        .first()
 
     if not latest_timestamp:
         return "❌ No data found."
 
-    entries = CalendarEntry.query.filter(CalendarEntry.timestamp == latest_timestamp[0]).all()
-    count = len(entries)
+    # Step 2: Get all entries that match this exact timestamp
+    entries_to_delete = CalendarEntry.query.filter(
+        CalendarEntry.timestamp == latest_timestamp[0]
+    ).all()
 
-    for entry in entries:
+    count = len(entries_to_delete)
+
+    if count == 0:
+        return f"ℹ️ No entries found with timestamp {latest_timestamp[0]}"
+
+    # Step 3: Delete all matching entries
+    for entry in entries_to_delete:
         db.session.delete(entry)
 
     db.session.commit()
-    return f"🗑️ Deleted {count} entries added at {latest_timestamp[0]}."
+    return f"🗑️ Safely deleted {count} entries from the last import (timestamp: {latest_timestamp[0]})."
+
 
 
 @app.route("/debug-import")
