@@ -141,17 +141,18 @@ def events():
 
 @app.route('/delete_last_import')
 def delete_last_import():
-    from sqlalchemy import desc
+    # Adjust this value based on how many entries you just imported
+    DELETE_LIMIT = 300
 
-    # Adjust this logic to target the latest 206 entries by ID or timestamp
-    recent_entries = CalendarEntry.query.order_by(desc(CalendarEntry.id)).limit(206).all()
+    # Get the most recent entries based on timestamp
+    latest_entries = CalendarEntry.query.order_by(CalendarEntry.timestamp.desc()).limit(DELETE_LIMIT).all()
 
-    for entry in recent_entries:
+    count = len(latest_entries)
+    for entry in latest_entries:
         db.session.delete(entry)
 
     db.session.commit()
-    return "✅ Deleted last 206 imported entries."
-
+    return f"🗑️ Deleted {count} most recent entries."
 
 @app.route("/debug-import")
 def debug_imported_data():
