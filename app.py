@@ -103,20 +103,35 @@ def logout():
 
 @app.route('/add_from_calendar', methods=['POST'])
 def add_from_calendar():
+    note = request.form.get('note')
     date_input = request.form.get('date')
     expected_input = request.form.get('expected_date') or date_input
 
-    new_entry = CalendarEntry(
-        date=date_input,
-        expected_date=expected_input,
-        note=request.form.get('note'),
-        details=request.form.get('details'),
-        text_color=request.form.get('text_color', '#000000'),
-        is_closed=('is_closed' in request.form)
-    )
-    db.session.add(new_entry)
+    existing = CalendarEntry.query.filter_by(note=note).first()
+
+    if existing:
+        # Update the existing entry
+        existing.date = date_input
+        existing.expected_date = expected_input
+        existing.details = request.form.get('details')
+        existing.text_color = request.form.get('text_color', '#000000')
+        existing.is_closed = ('is_closed' in request.form)
+        existing.timestamp = datetime.utcnow()
+    else:
+        # Add a new entry
+        new_entry = CalendarEntry(
+            date=date_input,
+            expected_date=expected_input,
+            note=note,
+            details=request.form.get('details'),
+            text_color=request.form.get('text_color', '#000000'),
+            is_closed=('is_closed' in request.form)
+        )
+        db.session.add(new_entry)
+
     db.session.commit()
     return redirect(url_for('full_calendar'))
+
 
 
 @app.route('/events')
@@ -141,30 +156,16 @@ def events():
 
 @app.route('/delete_last_import')
 def delete_last_import():
-    # Step 1: Get the most recent timestamp used in the latest batch import
-    latest_timestamp = db.session.query(CalendarEntry.timestamp)\
-        .order_by(CalendarEntry.timestamp.desc())\
-        .first()
+    from sqlalchemy import desc
 
-    if not latest_timestamp:
-        return "❌ No data found."
+    # Adjust this logic to target the latest 206 entries by ID or timestamp
+    recent_entries = CalendarEntry.query.order_by(desc(CalendarEntry.id)).limit(206).all()
 
-    # Step 2: Get all entries that match this exact timestamp
-    entries_to_delete = CalendarEntry.query.filter(
-        CalendarEntry.timestamp == latest_timestamp[0]
-    ).all()
-
-    count = len(entries_to_delete)
-
-    if count == 0:
-        return f"ℹ️ No entries found with timestamp {latest_timestamp[0]}"
-
-    # Step 3: Delete all matching entries
-    for entry in entries_to_delete:
+    for entry in recent_entries:
         db.session.delete(entry)
 
     db.session.commit()
-    return f"🗑️ Safely deleted {count} entries from the last import (timestamp: {latest_timestamp[0]})."
+    return "✅ Deleted last 206 imported entries."
 
 
 
