@@ -1,63 +1,48 @@
 import os
 import pandas as pd
-from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
+from app import db, CalendarEntry, app
 from datetime import datetime
-from dotenv import load_dotenv
 
-load_dotenv()
+FILE_PATH = "calendar_entry_template.csv"
 
-# Setup Flask app and DB
-app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv("DATABASE_URL") + "?sslmode=require"
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-db = SQLAlchemy(app)
-
-# Calendar model
-class CalendarEntry(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    text_color = db.Column(db.String(20), default="#000000")
-    date = db.Column(db.String(20), nullable=False)
-    note = db.Column(db.Text, nullable=False)
-    details = db.Column(db.Text, default="")
-    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
-    is_closed = db.Column(db.Boolean, default=False)
-    expected_date = db.Column(db.String(20))  # ISO format (yyyy-mm-dd)
-
-# CSV file location
-FILE_PATH = 'calendar_entry_template.csv'
+def normalize_date(value):
+    """Convert any datetime or string with time to YYYY-MM-DD format."""
+    try:
+        return datetime.strptime(value.strip(), "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d")
+    except:
+        try:
+            return datetime.strptime(value.strip(), "%Y-%m-%d").strftime("%Y-%m-%d")
+        except:
+            return ""
 
 with app.app_context():
     print("DB URL:", app.config['SQLALCHEMY_DATABASE_URI'])
 
-    df = pd.read_csv(FILE_PATH)
-
-    # Ensure required columns exist
-    required = ['date', 'note', 'details']
-    for col in required:
-        if col not in df.columns:
-            raise ValueError(f"Missing required column: {col}")
+    df = pd.read_csv(FILE_PATH).fillna("")
 
     added = 0
     for _, row in df.iterrows():
-        date = str(row['date']).strip()
-        expected_date = str(row.get('expected_date', '')).strip()
-        note = str(row['note']).strip()
-        details = str(row.get('details', '')).strip()
-        is_closed = bool(row.get('is_closed', False))
-        text_color = str(row.get('text_color', '#000000')).strip()
+        raw_date = str(row.get("date", "")).strip()
+        raw_expected = str(row.get("expected_date", "")).strip()
 
-        if not expected_date:
-            expected_date = date  # Rule 1
+        # Normalize both dates
+        norm_date = normalize_date(raw_date)
+        norm_expected = normalize_date(raw_expected)
 
-        # Save entry
+        # Fallback rule
+        if not norm_expected:
+            norm_expected = norm_date
+
+        if not norm_date:
+            continue  # skip invalid entry
+
         entry = CalendarEntry(
-            date=date,
-            expected_date=expected_date,
-            note=note,
-            details=details,
-            is_closed=is_closed,
-            text_color=text_color
+            date=norm_date,
+            expected_date=norm_expected,
+            note=row.get("note", ""),
+            details=row.get("details", ""),
+            text_color=row.get("text_color", "#000000"),
+            is_closed=str(row.get("is_closed", "")).strip().lower() == "true"
         )
         db.session.add(entry)
         added += 1

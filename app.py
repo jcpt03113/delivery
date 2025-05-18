@@ -139,6 +139,20 @@ def events():
         })
     return jsonify(events)
 
+@app.route('/delete_last_import')
+def delete_last_import():
+    from sqlalchemy import desc
+
+    # Adjust this logic to target the latest 206 entries by ID or timestamp
+    recent_entries = CalendarEntry.query.order_by(desc(CalendarEntry.id)).limit(206).all()
+
+    for entry in recent_entries:
+        db.session.delete(entry)
+
+    db.session.commit()
+    return "✅ Deleted last 206 imported entries."
+
+
 @app.route("/debug-import")
 def debug_imported_data():
     from flask import jsonify
