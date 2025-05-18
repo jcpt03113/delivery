@@ -30,34 +30,40 @@ FILE_PATH = "calendar_entry_template.csv"
 
 with app.app_context():
     df = pd.read_csv(FILE_PATH).fillna("")
-
-    added = 0
-    updated = 0
     now = datetime.now(timezone.utc)
+    added, updated = 0, 0
 
+    # STEP 1: Load existing notes into dict for fast lookup
+    existing_entries = CalendarEntry.query.with_entities(
+        CalendarEntry.id, CalendarEntry.note
+    ).all()
+    existing_notes = {e.note.strip().lower(): e.id for e in existing_entries}
+
+    # STEP 2: Loop through CSV rows
     for _, row in df.iterrows():
         note = str(row.get("note", "")).strip()
         if not note:
-            continue  # Skip if no NOTE value
+            continue  # Skip empty notes
 
-        existing = CalendarEntry.query.filter_by(note=note).first()
-
-        # Fallback for missing expected date
+        note_key = note.lower()
         date_val = str(row.get("date", "")).strip()
         expected_val = str(row.get("expected_date", "")).strip() or date_val
         color = str(row.get("text_color", "#000000")).strip() or "#000000"
         details = str(row.get("details", "")).strip()
         closed = str(row.get("is_closed", "")).strip().lower() in ['true', 'yes', '1']
 
-        if existing:
-            existing.date = date_val
-            existing.expected_date = expected_val
-            existing.details = details
-            existing.text_color = color
-            existing.is_closed = closed
-            existing.timestamp = now
+        if note_key in existing_notes:
+            # Update existing entry
+            existing_entry = CalendarEntry.query.get(existing_notes[note_key])
+            existing_entry.date = date_val
+            existing_entry.expected_date = expected_val
+            existing_entry.details = details
+            existing_entry.text_color = color
+            existing_entry.is_closed = closed
+            existing_entry.timestamp = now
             updated += 1
         else:
+            # Insert new entry
             new_entry = CalendarEntry(
                 date=date_val,
                 expected_date=expected_val,
