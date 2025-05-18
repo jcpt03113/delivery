@@ -1,6 +1,6 @@
 import os
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timezone
 from dotenv import load_dotenv
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
@@ -33,7 +33,7 @@ with app.app_context():
 
     added = 0
     updated = 0
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
 
     for _, row in df.iterrows():
         note = str(row.get("note", "")).strip()
