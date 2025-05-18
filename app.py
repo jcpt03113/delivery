@@ -139,6 +139,23 @@ def events():
         })
     return jsonify(events)
 
+@app.route("/debug-import")
+def debug_imported_data():
+    from flask import jsonify
+    entries = CalendarEntry.query.order_by(CalendarEntry.date).all()
+    result = [
+        {
+            "id": e.id,
+            "note": e.note,
+            "date": e.date,
+            "expected_date": e.expected_date,
+            "details": e.details,
+        }
+        for e in entries
+    ]
+    return jsonify(result)
+
+
 @app.route('/edit_from_calendar/<int:id>', methods=['POST', 'DELETE'])
 def edit_from_calendar(id):
     entry = CalendarEntry.query.get_or_404(id)
@@ -223,6 +240,7 @@ def search_events():
         })
 
     return jsonify(results)
+
 
 @app.route('/export_excel/<date_str>')
 def export_excel(date_str):
