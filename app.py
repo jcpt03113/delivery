@@ -141,18 +141,21 @@ def events():
 
 @app.route('/delete_last_import')
 def delete_last_import():
-    # Adjust this value based on how many entries you just imported
-    DELETE_LIMIT = 300
+    # Find the latest timestamp used
+    latest_timestamp = db.session.query(CalendarEntry.timestamp).order_by(CalendarEntry.timestamp.desc()).first()
 
-    # Get the most recent entries based on timestamp
-    latest_entries = CalendarEntry.query.order_by(CalendarEntry.timestamp.desc()).limit(DELETE_LIMIT).all()
+    if not latest_timestamp:
+        return "❌ No data found."
 
-    count = len(latest_entries)
-    for entry in latest_entries:
+    entries = CalendarEntry.query.filter(CalendarEntry.timestamp == latest_timestamp[0]).all()
+    count = len(entries)
+
+    for entry in entries:
         db.session.delete(entry)
 
     db.session.commit()
-    return f"🗑️ Deleted {count} most recent entries."
+    return f"🗑️ Deleted {count} entries added at {latest_timestamp[0]}."
+
 
 @app.route("/debug-import")
 def debug_imported_data():
