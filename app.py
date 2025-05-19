@@ -132,7 +132,25 @@ def add_from_calendar():
     db.session.commit()
     return redirect(url_for('full_calendar'))
 
+@app.route("/debug-bad-dates")
+def debug_bad_dates():
+    broken_entries = CalendarEntry.query.filter(
+        (CalendarEntry.expected_date == None) |
+        (CalendarEntry.expected_date == "") |
+        (~CalendarEntry.expected_date.op("~")(r"^\d{4}-\d{2}-\d{2}$"))  # Not yyyy-mm-dd
+    ).order_by(CalendarEntry.timestamp.desc()).all()
 
+    results = [
+        {
+            "id": e.id,
+            "note": e.note,
+            "expected_date": e.expected_date,
+            "original_date": e.date,
+            "timestamp": e.timestamp.isoformat(),
+        }
+        for e in broken_entries
+    ]
+    return jsonify(results)
 
 @app.route('/events')
 def events():
