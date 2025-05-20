@@ -360,11 +360,22 @@ document.addEventListener('DOMContentLoaded', function () {
                             document.getElementById('editDate').value = event.start;
                             document.getElementById('editColor').value = event.textColor || '#000000';
                             document.getElementById('editForm').action = `/edit_from_calendar/${event.id}`;
+
+                            // ✅ Safely format expected_date for date input field
+                            if (event.expected_date) {
+                                const date = new Date(event.expected_date);
+                                const formatted = date.toISOString().split('T')[0]; // YYYY-MM-DD
+                                document.getElementById('editExpectedDate').value = formatted;
+                            } else {
+                                document.getElementById('editExpectedDate').value = '';
+                            }
+
                             editEditor.clipboard.dangerouslyPasteHTML(event.details || '');
                             document.getElementById('editDetailsInput').value = event.details || '';
                             bootstrap.Modal.getInstance(document.getElementById('searchResultsModal')).hide();
                             new bootstrap.Modal(document.getElementById('eventModal')).show();
                         });
+
                         resultsContainer.appendChild(card);
                     });
                 }

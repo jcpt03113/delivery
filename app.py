@@ -163,6 +163,7 @@ def events():
             'title': title,
             'start': entry.expected_date if entry.expected_date else entry.date,
             'textColor': entry.text_color,
+            'expected_date': entry.expected_date or '',  # 👈 this is the fix
             'extendedProps': {
                 'details': entry.details,
                 'original_date': entry.date,
@@ -284,7 +285,8 @@ def search_events():
             'title': entry.note,
             'details': entry.details,
             'start': date_str,
-            'textColor': entry.text_color
+            'textColor': entry.text_color,
+            'expected_date': entry.expected_date or ''  # ✅ Add this line
         })
 
     return jsonify(results)
