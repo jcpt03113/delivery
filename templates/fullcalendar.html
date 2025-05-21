@@ -11,6 +11,12 @@
     <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
 
     <style>
+        mark {
+            background-color: yellow;
+            font-weight: bold;
+        }
+
+
         .fc-event {
             background-color: #f0f0f0 !important;
             border: 1px solid #999 !important;  /* 🔲 Added border */
@@ -170,6 +176,13 @@
 
 <script>
 let addEditor, editEditor;
+
+function highlightKeyword(text, keyword) {
+    if (!keyword) return text;
+    const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // escape regex chars
+    const regex = new RegExp(escapedKeyword, 'gi');
+    return text.replace(regex, match => `<mark>${match}</mark>`);
+}
 
 document.addEventListener('DOMContentLoaded', function () {
     const calendarEl = document.getElementById('calendar');
@@ -351,11 +364,15 @@ document.addEventListener('DOMContentLoaded', function () {
                     events.forEach(event => {
                         const card = document.createElement('div');
                         card.className = 'mb-2 p-2 border rounded bg-light search-result';
+                        const highlightedTitle = highlightKeyword(event.title || '', keyword);
+                        const highlightedDetails = highlightKeyword(event.details || '', keyword);
+
                         card.innerHTML = `
-                            <strong>${event.title}</strong><br>
+                            <strong>${highlightedTitle}</strong><br>
                             <small><strong>Delivery:</strong> ${event.start}</small><br>
-                            <div>${event.details || ''}</div>
+                            <div>${highlightedDetails}</div>
                         `;
+
                         card.addEventListener('click', function () {
                             document.getElementById('editNote').value = event.title;
                             document.getElementById('editDate').value = event.start;
