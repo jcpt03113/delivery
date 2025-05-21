@@ -1,3 +1,563 @@
+**📦 PROJECT SUMMARY: Delivery Calendar System (Dunlopillo)**
+
+---
+
+**🔹 Project Name:**
+Dunlopillo Delivery Calendar System
+
+**🔹 Project Type:**
+Web Application (FullCalendar + Flask Backend)
+
+**🔹 Frontend:**
+
+* HTML + FullCalendar.js (hosted via Flask route)
+* Template File: `fullcalendar.html`
+* Rich text editor: Quill.js
+* Style: Bootstrap 5
+
+**🔹 Backend:**
+
+* Python Flask App (`app.py`)
+* ORM: SQLAlchemy
+* Login System: `flask_login` (hardcoded users)
+* Session timeout: 20 minutes
+* Data model: `CalendarEntry`
+
+**🔹 Database:**
+
+* PostgreSQL (hosted on Render.com or Fly.io)
+* Environment variable: `DATABASE_URL`
+* Current database URL:
+
+  ```
+  ```
+
+postgresql://anzhome\:HKBKcJVneu9uwVkDJ6QB2IBMGBj4OeVz\@dpg-d081a7ngi27c738206vg-a.oregon-postgres.render.com/anzdelivery?sslmode=require
+
+```
+
+**🔹 Hosting:**
+- Backend: Fly.io
+- Frontend served via Flask
+- URL: https://delivery-ge21.onrender.com (Live system)
+
+**🔹 Login Credentials:**
+- `admin` / `anzhome1388`
+- `showroom` / `anzdelivery`
+
+---
+
+**🗃️ Key Routes Summary:**
+- `/` → Calendar homepage
+- `/events` → JSON list of calendar entries
+- `/add_from_calendar` → Add calendar entry
+- `/edit_from_calendar/<id>` → Edit an event (via modal)
+- `/delete_from_calendar/<id>` → Manual delete
+- `/delete_last_import` → Deletes latest batch of imported entries (based on timestamp)
+- `/fix_expected_date_once` → Copies `date` to `expected_date` if missing
+- `/debug-bad-dates` → Shows entries with broken date formats
+- `/debug-import` → Lists all entries
+- `/search_events` → AJAX search with keyword, date, closed filter
+- `/export_excel/<date>` → Export entries on that day to Excel
+- `/export_all` → Full Excel export of all entries
+
+---
+
+**📥 Import Script: `import_calendar_data.py`**
+- Reads from `calendar_entry_template.csv`
+- Handles empty fields, default color as `#000000`
+- Matches `note` field to detect duplicates
+- If same `note` and other fields changed → updates the row
+- Supports upsert (add if new, update if exist)
+- All imported entries marked with the same UTC `timestamp`
+
+---
+
+**📤 Maintenance Scripts:**
+- `check_last48hours_bad_entries.py` → Scans recent entries and exports invalid/missing `expected_date` to Excel
+
+---
+
+**⚠️ Backup Notice:**
+- All newly imported entries and auto-modified entries are timestamped
+- Bad data (e.g., `expected_date` not in `yyyy-mm-dd` format) will cause calendar display issue
+- You can search using `/debug-bad-dates` or check raw DB manually
+
+---
+
+**✅ Git Best Practice:**
+- Use `git add app.py fullcalendar.html import_calendar_data.py` to track core files
+- Use `git commit -m "Updated logic for calendar import and format"`
+- Then `git push` to sync to remote
+
+---
+
+**🛠️ Next Step:**
+👉 The actual full code of `app.py`, `import_calendar_data.py`, and `fullcalendar.html` will be added below...
+
+---
+
+**📂 FILE: app.py**
+
+
+from flask import Flask, render_template, request, redirect, url_for, jsonify, send_file, flash
+from flask_sqlalchemy import SQLAlchemy
+from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+from datetime import datetime
+from bs4 import BeautifulSoup
+from io import BytesIO
+import pandas as pd
+import os
+
+from dotenv import load_dotenv
+load_dotenv()
+print("DB URL:", os.getenv("DATABASE_URL"))
+
+app = Flask(__name__)
+app.secret_key = 'supersecretkey'  # Change this in production
+
+# Enforce ?sslmode=require and engine SSL options
+raw_db_url = os.getenv("DATABASE_URL", "")
+if raw_db_url and 'sslmode=' not in raw_db_url:
+    raw_db_url += '?sslmode=require'
+
+app.config['SQLALCHEMY_DATABASE_URI'] = raw_db_url
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    "connect_args": {"sslmode": "require"}
+}
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+db = SQLAlchemy(app)
+
+print("Connected to:", app.config['SQLALCHEMY_DATABASE_URI'])
+
+
+from datetime import timedelta
+
+app.permanent_session_lifetime = timedelta(minutes=20)
+
+
+
+# Login manager setup
+login_manager = LoginManager()
+login_manager.login_view = 'login'
+login_manager.init_app(app)
+
+# Calendar model
+class CalendarEntry(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    text_color = db.Column(db.String(20), default="#000000")
+    date = db.Column(db.String(20), nullable=False)
+    note = db.Column(db.Text, nullable=False)
+    details = db.Column(db.Text, default="")
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    is_closed = db.Column(db.Boolean, default=False)
+    expected_date = db.Column(db.String(20))  # ISO date format
+
+with app.app_context():
+    db.create_all()
+
+# Login system with multiple hardcoded users
+class User(UserMixin):
+    def __init__(self, id, password):
+        self.id = id
+        self.name = id
+        self.password = password
+
+# Define users here
+users = {
+    'admin': User(id='admin', password='anzhome1388'),
+    'showroom': User(id='showroom', password='anzdelivery')
+}
+
+@login_manager.user_loader
+def load_user(user_id):
+    return users.get(user_id)
+# ====== ROUTES ======
+
+@app.route('/')
+@login_required
+def full_calendar():
+    return render_template('fullcalendar.html')
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+
+        user = users.get(username)
+        if user and password == user.password:
+            login_user(user)
+            return redirect(url_for('full_calendar'))
+        else:
+            flash("Invalid username or password.")
+            return redirect(url_for('login'))
+
+    return render_template('login.html')
+
+
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    return redirect(url_for('login'))
+
+@app.route('/add_from_calendar', methods=['POST'])
+def add_from_calendar():
+    note = request.form.get('note')
+    date_input = request.form.get('date')
+    expected_input = request.form.get('expected_date') or date_input
+
+    existing = CalendarEntry.query.filter_by(note=note).first()
+
+    if existing:
+        # Update the existing entry
+        existing.date = date_input
+        existing.expected_date = expected_input
+        existing.details = request.form.get('details')
+        existing.text_color = request.form.get('text_color', '#000000')
+        existing.is_closed = ('is_closed' in request.form)
+        existing.timestamp = datetime.utcnow()
+    else:
+        # Add a new entry
+        new_entry = CalendarEntry(
+            date=date_input,
+            expected_date=expected_input,
+            note=note,
+            details=request.form.get('details'),
+            text_color=request.form.get('text_color', '#000000'),
+            is_closed=('is_closed' in request.form)
+        )
+        db.session.add(new_entry)
+
+    db.session.commit()
+    return redirect(url_for('full_calendar'))
+
+@app.route("/debug-bad-dates")
+def debug_bad_dates():
+    broken_entries = CalendarEntry.query.filter(
+        (CalendarEntry.expected_date == None) |
+        (CalendarEntry.expected_date == "") |
+        (~CalendarEntry.expected_date.op("~")(r"^\d{4}-\d{2}-\d{2}$"))  # Not yyyy-mm-dd
+    ).order_by(CalendarEntry.timestamp.desc()).all()
+
+    results = [
+        {
+            "id": e.id,
+            "note": e.note,
+            "expected_date": e.expected_date,
+            "original_date": e.date,
+            "timestamp": e.timestamp.isoformat(),
+        }
+        for e in broken_entries
+    ]
+    return jsonify(results)
+
+@app.route('/events')
+def events():
+    entries = CalendarEntry.query.all()
+    events = []
+    for entry in entries:
+        title = f"[CLOSED] {entry.note}" if entry.is_closed else entry.note
+        events.append({
+            'id': entry.id,
+            'title': title,
+            'start': entry.expected_date if entry.expected_date else entry.date,
+            'textColor': entry.text_color,
+            'extendedProps': {
+                'details': entry.details,
+                'original_date': entry.date,
+                'expected_date': entry.expected_date,
+                'is_closed': entry.is_closed
+            }
+        })
+    return jsonify(events)
+
+@app.route('/delete_last_import')
+def delete_last_import():
+    from sqlalchemy import desc
+
+    # Adjust this logic to target the latest 206 entries by ID or timestamp
+    recent_entries = CalendarEntry.query.order_by(desc(CalendarEntry.id)).limit(206).all()
+
+    for entry in recent_entries:
+        db.session.delete(entry)
+
+    db.session.commit()
+    return "✅ Deleted last 206 imported entries."
+
+
+
+@app.route("/debug-import")
+def debug_imported_data():
+    from flask import jsonify
+    entries = CalendarEntry.query.order_by(CalendarEntry.date).all()
+    result = [
+        {
+            "id": e.id,
+            "note": e.note,
+            "date": e.date,
+            "expected_date": e.expected_date,
+            "details": e.details,
+        }
+        for e in entries
+    ]
+    return jsonify(result)
+
+
+@app.route('/edit_from_calendar/<int:id>', methods=['POST', 'DELETE'])
+def edit_from_calendar(id):
+    entry = CalendarEntry.query.get_or_404(id)
+
+    if request.method == 'DELETE':
+        db.session.delete(entry)
+        db.session.commit()
+        return '', 204
+
+    updated_date = request.form.get('expected_date')  # always use expected_date as new source of truth
+
+    entry.expected_date = updated_date
+    entry.date = updated_date  # sync the date
+    entry.note = request.form.get('note')
+    entry.details = request.form.get('details')
+    entry.text_color = request.form.get('text_color', '#000000')
+    entry.is_closed = 'is_closed' in request.form
+
+    db.session.commit()
+    return redirect(url_for('full_calendar'))
+
+
+
+
+
+
+
+
+    # Existing POST edit logic remains unchanged...
+
+
+@app.route('/delete_from_calendar/<int:id>', methods=['POST'])
+def delete_from_calendar(id):
+    entry = CalendarEntry.query.get_or_404(id)
+    db.session.delete(entry)
+    db.session.commit()
+    return redirect(url_for('full_calendar'))
+
+@app.route("/search_events")
+def search_events():
+    keyword = request.args.get("q", "").lower().strip()
+    start_date = request.args.get("start")
+    end_date = request.args.get("end")
+
+    results = []
+
+    # Convert strings to actual date objects
+    try:
+        start_date_obj = datetime.strptime(start_date, "%Y-%m-%d").date() if start_date else None
+        end_date_obj = datetime.strptime(end_date, "%Y-%m-%d").date() if end_date else None
+    except ValueError:
+        start_date_obj = end_date_obj = None  # fail-safe
+
+    entries = CalendarEntry.query.all()
+
+    for entry in entries:
+        note = (entry.note or "").lower()
+        details = (entry.details or "").lower()
+        if keyword not in note and keyword not in details:
+            continue
+
+        # pick the date to compare
+        date_str = entry.expected_date or entry.date
+        try:
+            entry_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+        except:
+            continue  # skip bad date formats
+
+        # Check date filters
+        if start_date_obj and entry_date < start_date_obj:
+            continue
+        if end_date_obj and entry_date > end_date_obj:
+            continue
+
+        # Passed all filters
+        results.append({
+            'id': entry.id,
+            'title': entry.note,
+            'details': entry.details,
+            'start': date_str,
+            'textColor': entry.text_color
+        })
+
+    return jsonify(results)
+
+
+@app.route('/export_excel/<date_str>')
+def export_excel(date_str):
+    entries = CalendarEntry.query.filter_by(date=date_str).all()
+    if not entries:
+        return "No data found for selected date", 404
+
+    data = []
+    for e in entries:
+        plain_details = BeautifulSoup(e.details or "", "html.parser").get_text(separator="\n")
+        data.append({
+            'Note': f"[CLOSED] {e.note}" if e.is_closed else e.note,
+            'Details': plain_details
+        })
+
+    df = pd.DataFrame(data)
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df.to_excel(writer, index=False, sheet_name='Sheet1')
+        workbook = writer.book
+        worksheet = writer.sheets['Sheet1']
+        wrap_format = workbook.add_format({'text_wrap': True, 'valign': 'top'})
+        worksheet.set_column('A:B', 40, wrap_format)
+
+    output.seek(0)
+    filename = f"calendar_export_{date_str}.xlsx"
+    return send_file(output, as_attachment=True, download_name=filename, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
+@app.route('/export_all')
+def export_all():
+    entries = CalendarEntry.query.order_by(CalendarEntry.date).all()
+    if not entries:
+        return "No data found", 404
+
+    data = []
+    for e in entries:
+        plain_details = BeautifulSoup(e.details or "", "html.parser").get_text(separator="\n")
+        data.append({
+            'Date': e.date,
+            'Note': f"[CLOSED] {e.note}" if e.is_closed else e.note,
+            'Details': plain_details
+        })
+
+    df = pd.DataFrame(data)
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df.to_excel(writer, index=False, sheet_name='All Data')
+        workbook = writer.book
+        worksheet = writer.sheets['All Data']
+        wrap_format = workbook.add_format({'text_wrap': True, 'valign': 'top'})
+        worksheet.set_column('A:C', 40, wrap_format)
+
+    output.seek(0)
+    return send_file(output, as_attachment=True, download_name="all_calendar_data.xlsx", mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
+@app.route('/test_export')
+def test_export():
+    return "Test Export OK"
+
+@app.route('/fix_expected_date_once')
+def fix_expected_date_once():
+    entries = CalendarEntry.query.filter(
+        (CalendarEntry.expected_date == None) | (CalendarEntry.expected_date == '')
+    ).all()
+
+    count = 0
+    for entry in entries:
+        entry.expected_date = entry.date
+        count += 1
+
+    db.session.commit()
+    return f"✅ Fixed {count} entries where expected_date was blank."
+
+if __name__ == '__main__':
+    app.run(debug=True, host='0.0.0.0', port=5050)
+
+
+
+**📂 FILE: import_calendar_data.py**
+
+import os
+import pandas as pd
+from datetime import datetime, timezone
+from dotenv import load_dotenv
+from flask import Flask
+from flask_sqlalchemy import SQLAlchemy
+
+# Load environment
+load_dotenv()
+
+# Flask app + DB setup
+app = Flask(__name__)
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv("DATABASE_URL") + "?sslmode=require"
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db = SQLAlchemy(app)
+
+# DB model
+class CalendarEntry(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    text_color = db.Column(db.String(20), default="#000000")
+    date = db.Column(db.String(20), nullable=False)
+    note = db.Column(db.Text, nullable=False)
+    details = db.Column(db.Text, default="")
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    is_closed = db.Column(db.Boolean, default=False)
+    expected_date = db.Column(db.String(20))
+
+# === Bulk Import Logic ===
+FILE_PATH = "calendar_entry_template.csv"
+
+with app.app_context():
+    df = pd.read_csv(FILE_PATH).fillna("")
+    now = datetime.now(timezone.utc)
+    added, updated = 0, 0
+
+    # STEP 1: Load existing notes into dict for fast lookup
+    existing_entries = CalendarEntry.query.with_entities(
+        CalendarEntry.id, CalendarEntry.note
+    ).all()
+    existing_notes = {e.note.strip().lower(): e.id for e in existing_entries}
+
+    # STEP 2: Loop through CSV rows
+    for _, row in df.iterrows():
+        note = str(row.get("note", "")).strip()
+        if not note:
+            continue  # Skip empty notes
+
+        note_key = note.lower()
+        date_val = str(row.get("date", "")).strip()
+        expected_val = str(row.get("expected_date", "")).strip() or date_val
+        color = str(row.get("text_color", "#000000")).strip() or "#000000"
+        details = str(row.get("details", "")).strip()
+        closed = str(row.get("is_closed", "")).strip().lower() in ['true', 'yes', '1']
+
+        if note_key in existing_notes:
+            # Update existing entry
+            existing_entry = db.session.get(CalendarEntry, existing_notes[note_key])
+            existing_entry.date = date_val
+            existing_entry.expected_date = expected_val
+            existing_entry.details = details
+            existing_entry.text_color = color
+            existing_entry.is_closed = closed
+            existing_entry.timestamp = now
+            updated += 1
+        else:
+            # Insert new entry
+            new_entry = CalendarEntry(
+                date=date_val,
+                expected_date=expected_val,
+                note=note,
+                details=details,
+                text_color=color,
+                is_closed=closed,
+                timestamp=now
+            )
+            db.session.add(new_entry)
+            added += 1
+
+    db.session.commit()
+    print(f"✅ Import complete. {added} added, {updated} updated.")
+
+
+
+
+
+**📂 FILE: templates/fullcalendar.html**
+
 <!DOCTYPE html>
 <html>
 <head>
@@ -223,7 +783,6 @@ document.addEventListener('DOMContentLoaded', function () {
             right: 'dayGridMonth,timeGridWeek,timeGridDay'
         },
         initialView: 'dayGridMonth',
-        initialDate: new Date(),
         dayHeaderContent: function(arg) {
         const english = arg.text;
         const chinese = chineseWeekdays[english] || '';
@@ -361,22 +920,11 @@ document.addEventListener('DOMContentLoaded', function () {
                             document.getElementById('editDate').value = event.start;
                             document.getElementById('editColor').value = event.textColor || '#000000';
                             document.getElementById('editForm').action = `/edit_from_calendar/${event.id}`;
-
-                            // ✅ Safely format expected_date for date input field
-                            if (event.expected_date) {
-                                const date = new Date(event.expected_date);
-                                const formatted = date.toISOString().split('T')[0]; // YYYY-MM-DD
-                                document.getElementById('editExpectedDate').value = formatted;
-                            } else {
-                                document.getElementById('editExpectedDate').value = '';
-                            }
-
                             editEditor.clipboard.dangerouslyPasteHTML(event.details || '');
                             document.getElementById('editDetailsInput').value = event.details || '';
                             bootstrap.Modal.getInstance(document.getElementById('searchResultsModal')).hide();
                             new bootstrap.Modal(document.getElementById('eventModal')).show();
                         });
-
                         resultsContainer.appendChild(card);
                     });
                 }
@@ -419,3 +967,14 @@ document.getElementById('deleteEventBtn').addEventListener('click', function () 
 
 </body>
 </html>
+
+
+
+
+
+---
+
+This `.txt` file is your master project documentation and code backup.
+Once complete, keep it in a secure folder or version control system (e.g. GitHub private repo or Google Drive).
+
+```
