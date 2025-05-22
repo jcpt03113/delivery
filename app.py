@@ -6,6 +6,7 @@ from bs4 import BeautifulSoup
 from io import BytesIO
 import pandas as pd
 import os
+from flask import send_file
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -231,11 +232,6 @@ def edit_from_calendar(id):
 
 
 
-
-
-    # Existing POST edit logic remains unchanged...
-
-
 @app.route('/delete_from_calendar/<int:id>', methods=['POST'])
 def delete_from_calendar(id):
     entry = CalendarEntry.query.get_or_404(id)
@@ -292,31 +288,42 @@ def search_events():
     return jsonify(results)
 
 
-@app.route('/export_excel/<date_str>')
-def export_excel(date_str):
-    entries = CalendarEntry.query.filter_by(date=date_str).all()
+@app.route('/export_by_date', methods=['GET'])
+def export_by_date():
+    from bs4 import BeautifulSoup
+    selected_date = request.args.get('date')  # format: YYYY-MM-DD
+
+    if not selected_date:
+        return "No date provided", 400
+
+    entries = CalendarEntry.query.filter(CalendarEntry.expected_date == selected_date).all()
+
+    for e in entries:
+        print(">> DEBUG:", e.note, e.expected_date, e.date)
+
     if not entries:
-        return "No data found for selected date", 404
+        return f"No entries found for {selected_date}", 404
 
     data = []
     for e in entries:
-        plain_details = BeautifulSoup(e.details or "", "html.parser").get_text(separator="\n")
+        plain_details = BeautifulSoup(e.details or '', 'html.parser').get_text(separator='\n')
         data.append({
             'Note': f"[CLOSED] {e.note}" if e.is_closed else e.note,
-            'Details': plain_details
+            'Details': plain_details,
+            'Expected Delivery Date': e.expected_date
         })
 
     df = pd.DataFrame(data)
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        df.to_excel(writer, index=False, sheet_name='Sheet1')
+        df.to_excel(writer, index=False, sheet_name='Deliveries')
         workbook = writer.book
-        worksheet = writer.sheets['Sheet1']
+        worksheet = writer.sheets['Deliveries']
         wrap_format = workbook.add_format({'text_wrap': True, 'valign': 'top'})
-        worksheet.set_column('A:B', 40, wrap_format)
+        worksheet.set_column('A:C', 40, wrap_format)
 
     output.seek(0)
-    filename = f"calendar_export_{date_str}.xlsx"
+    filename = f"Deliveries_{selected_date}.xlsx"
     return send_file(output, as_attachment=True, download_name=filename, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
 @app.route('/export_all')

@@ -410,7 +410,7 @@ function exportToExcel() {
         alert("Please select a date to export.");
         return;
     }
-    window.location.href = `/export_excel/${selectedDate}`;
+    window.location.href = `/export_by_date?date=${encodeURIComponent(selectedDate)}`;
 }
 </script>
 <script>
